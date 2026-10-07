@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Session 21: DevOps Full-Stack Portal</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <header class="hero">
+      <div class="badge">Session 21 Final DevOps Project</div>
+      <h1>DevOps Full-Stack Cloud Portal</h1>
+      <p class="subtitle">Engineered by <strong>Shubh Shukla</strong> (Enrollment: <code>24bcs10093</code>)</p>
+      <div class="system-status">
+        <span class="indicator online"></span> Multi-Container Architecture: <strong>Online & Healthy</strong>
+      </div>
+    </header>
+
+    <main class="grid-layout">
+      <section class="card info-card">
+        <h2>Architecture Specs</h2>
+        <ul>
+          <li><strong>Tier 1:</strong> Nginx Reverse Proxy & Frontend (Alpine)</li>
+          <li><strong>Tier 2:</strong> Node.js Express REST API (Alpine Multi-Stage)</li>
+          <li><strong>Tier 3:</strong> PostgreSQL 15 Relational Database</li>
+          <li><strong>Orchestrator:</strong> Docker Compose with Custom Bridge Network</li>
+          <li><strong>Data Persistence:</strong> Dedicated Named Volume (<code>postgres_data</code>)</li>
+        </ul>
+      </section>
+
+      <section class="card live-data-card">
+        <div class="card-header">
+          <h2>Persistent Tasks & Pipeline Tracker</h2>
+          <button id="refreshBtn" class="btn btn-secondary">Refresh</button>
+        </div>
+        <div id="tasksList" class="tasks-container">
+          <div class="loader">Loading real-time data from PostgreSQL...</div>
+        </div>
+        <form id="addTaskForm" class="add-task-form">
+          <input type="text" id="taskTitle" placeholder="Add DevOps Milestone..." required />
+          <button type="submit" class="btn btn-primary">Add Task</button>
+        </form>
+      </section>
+    </main>
+
+    <footer>
+      <p>DevOps Assignment Suite | Branch: <code>main</code> | GitHub: <a href="https://github.com/shubh-aarambh/devops" target="_blank">shubh-aarambh/devops</a></p>
+    </footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

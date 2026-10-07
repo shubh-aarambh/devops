@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevOps Session 21 - 3-Tier Multi-Container Application</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="badge">Session 21 &bull; Docker Compose &bull; DevOps Project</div>
+      <h1>3-Tier Multi-Container Cloud Application</h1>
+      <div class="student-banner">
+        <span><strong>Student:</strong> Shubh Shukla</span>
+        <span>&bull;</span>
+        <span><strong>Enrollment No:</strong> 24bcs10093</span>
+        <span>&bull;</span>
+        <span><strong>Course:</strong> SST DevOps &amp; Cloud Architecture</span>
+      </div>
+    </header>
+
+    <div class="grid cards-grid">
+      <div class="card service-card">
+        <div class="card-header">
+          <span class="service-icon">&#127760;</span>
+          <div>
+            <h3>Frontend Tier</h3>
+            <p class="service-sub">Nginx Reverse Proxy</p>
+          </div>
+        </div>
+        <div class="status-indicator online">
+          <span class="dot"></span> Running on Port 3000
+        </div>
+        <p class="tech-tag">Docker Image: nginx:alpine</p>
+      </div>
+
+      <div class="card service-card">
+        <div class="card-header">
+          <span class="service-icon">&#9881;</span>
+          <div>
+            <h3>Backend Tier</h3>
+            <p class="service-sub">Express.js REST API</p>
+          </div>
+        </div>
+        <div class="status-indicator online" id="backend-status">
+          <span class="dot"></span> Checking API...
+        </div>
+        <p class="tech-tag">Docker Image: node:18-alpine</p>
+      </div>
+
+      <div class="card service-card">
+        <div class="card-header">
+          <span class="service-icon">&#128452;</span>
+          <div>
+            <h3>Database Tier</h3>
+            <p class="service-sub">PostgreSQL 15</p>
+          </div>
+        </div>
+        <div class="status-indicator online" id="db-status">
+          <span class="dot"></span> Checking DB...
+        </div>
+        <p class="tech-tag">Docker Volume: postgres_data</p>
+      </div>
+    </div>
+
+    <section class="card main-section">
+      <div class="section-header">
+        <h2>Live PostgreSQL Database Records</h2>
+        <button id="refresh-btn" class="btn btn-secondary">Refresh</button>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Task Title</th>
+            <th>Description</th>
+            <th>Status</th>
+            <th>Author</th>
+          </tr>
+        </thead>
+        <tbody id="task-list">
+          <tr><td colspan="5" style="text-align:center;">Loading tasks from PostgreSQL...</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card form-section">
+      <h2>Add New DevOps Task</h2>
+      <form id="add-task-form">
+        <div class="form-row">
+          <input type="text" id="task-title" placeholder="Task Title (e.g., CI/CD Security Gate)" required>
+          <input type="text" id="task-desc" placeholder="Task Description" required>
+          <select id="task-status">
+            <option value="Completed">Completed</option>
+            <option value="In Progress" selected>In Progress</option>
+            <option value="Pending">Pending</option>
+          </select>
+          <button type="submit" class="btn btn-primary">Add Task</button>
+        </div>
+      </form>
+    </section>
+
+    <footer class="footer">
+      <p>Verified with <code>docker compose up -d --build</code> &bull; Network: <code>devops-network</code> &bull; Volume: <code>postgres_data</code></p>
+    </footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

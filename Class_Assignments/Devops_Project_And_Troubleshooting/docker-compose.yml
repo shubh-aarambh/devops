@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  database:
+    image: postgres:15-alpine
+    container_name: s21-postgres-db
+    restart: always
+    environment:
+      POSTGRES_DB: devopsdb
+      POSTGRES_USER: shubh_admin
+      POSTGRES_PASSWORD: shubhsecurepass123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./application/database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - devops-backend-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shubh_admin -d devopsdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./application/backend
+      dockerfile: Dockerfile
+    container_name: s21-backend-api
+    restart: always
+    environment:
+      PORT: 5000
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: devopsdb
+      DB_USER: shubh_admin
+      DB_PASSWORD: shubhsecurepass123
+    ports:
+      - "5000:5000"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - devops-backend-net
+      - devops-frontend-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:5000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./application/frontend
+      dockerfile: Dockerfile
+    container_name: s21-frontend-web
+    restart: always
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - devops-frontend-net
+
+networks:
+  devops-backend-net:
+    driver: bridge
+  devops-frontend-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
