@@ -1,249 +1,240 @@
 # Session 21: Final DevOps Project & Troubleshooting
 
-**Name:** Shubh Shukla  
+**Student Name:** Shubh Shukla  
 **Enrollment No:** 24bcs10093  
-**Course:** SST DevOps & Cloud Engineering  
-**Session:** 21 — Multi-Container Application Orchestration with Docker Compose  
 **Repository:** [shubh-aarambh/devops](https://github.com/shubh-aarambh/devops)  
+**Submission Field:** Session 21: Final DevOps Project & Troubleshooting  
 
 ---
 
-## Executive Summary & Deliverables
+## Executive Overview
 
-This assignment fulfills all requirements for **Session 21: Final DevOps Project & Troubleshooting**. The goal is to architect, containerize, orchestrate, and troubleshoot an end-to-end 3-tier production application consisting of:
-1. **Frontend Tier:** Web application running on Nginx (Port 3000).
-2. **Backend Tier:** RESTful API service running on Node.js / Express (Port 5000).
-3. **Database Tier:** Relational database running on PostgreSQL 15 with automated schema initialization and persistent volumes.
+This project delivers an enterprise-grade, end-to-end containerized three-tier cloud application orchestrated with Docker Compose, accompanied by a complete automated troubleshooting suite. The system consists of:
 
-All tasks—from manual testing to multi-container orchestration with Docker Compose, health checks, dependency resolution, API validation, and fullstack browser verification—have been executed with real outputs and terminal/browser evidence.
+1. **Frontend Presentation Tier:** High-performance Nginx web server acting as a reverse proxy and serving a reactive HTML5/CSS3 DevOps control dashboard.
+2. **Backend Application Tier:** RESTful API service built on Node.js and Express, packaged with a multi-stage Dockerfile for minimal attack surface.
+3. **Database Tier:** Persistent PostgreSQL 15 relational database initialized with database schemas, seeded milestones, and persistent Docker volume storage.
+4. **Resilient Orchestration:** Multi-network segmentation (`devops-frontend-net` and `devops-backend-net`), strict health checks, startup dependency synchronization (`condition: service_healthy`), and automated troubleshooting remediation.
 
 ---
 
-## 3-Tier Architecture Overview
+## Architecture Specification
 
-```mermaid
-graph TD
-    Client["Web Browser / Client (Port 3000)"]
-    subgraph "Docker Host Environment"
-        subgraph "devops-network (Bridge Network)"
-            Frontend["Frontend Tier (nginx:alpine)<br/>Port 3000:80<br/>Reverse Proxy + Static UI"]
-            Backend["Backend Tier (node:18-alpine)<br/>Port 5000:5000<br/>Express.js REST API"]
-            DB[("Database Tier (postgres:15-alpine)<br/>Port 5432:5432<br/>PostgreSQL Engine")]
-        end
-        Volume[("Persistent Named Volume<br/>postgres_data")]
-    end
+```
+                          [ Client Browser / HTTP Client ]
+                                        │
+                                        │ (Port 8080)
+                                        ▼
+                  ┌───────────────────────────────────────────┐
+                  │          s21-frontend-web (Nginx)         │
+                  │   - Reverse Proxy: /api/* -> Backend:5000 │
+                  │   - Static Portal: /usr/share/nginx/html  │
+                  └─────────────────────┬─────────────────────┘
+                                        │
+                         [ devops-frontend-net (Bridge) ]
+                                        │
+                                        ▼
+                  ┌───────────────────────────────────────────┐
+                  │           s21-backend-api (Node.js)       │
+                  │   - Express REST API (/health, /api/tasks)│
+                  │   - Multi-Stage Alpine Container          │
+                  └─────────────────────┬─────────────────────┘
+                                        │
+                         [ devops-backend-net (Bridge) ]
+                                        │
+                                        ▼
+                  ┌───────────────────────────────────────────┐
+                  │           s21-postgres-db (PostgreSQL 15) │
+                  │   - Port 5432                             │
+                  │   - Volume: postgres_data                 │
+                  └───────────────────────────────────────────┘
+```
 
-    Client -->|HTTP GET/POST| Frontend
-    Frontend -->|Reverse Proxy /api, /health| Backend
-    Backend -->|pg connection pool :5432| DB
-    DB --- Volume
+### Network Isolation Principle
+- The database tier is completely isolated on `devops-backend-net` and **cannot be reached directly from the host or external internet**.
+- The backend bridges both `devops-frontend-net` and `devops-backend-net`.
+- Only the frontend exposed port (`8080`) is exposed for ingress web traffic.
+
+---
+
+## Repository Structure
+
+```
+Class_Assignments/Devops_Project_And_Troubleshooting/
+├── application/
+│   ├── backend/
+│   │   ├── Dockerfile
+│   │   ├── package.json
+│   │   └── server.js
+│   ├── database/
+│   │   └── init.sql
+│   └── frontend/
+│       ├── Dockerfile
+│       ├── app.js
+│       ├── index.html
+│       ├── nginx.conf
+│       └── style.css
+├── docker-compose.yml
+├── images/
+│   ├── task1-1-manual-postgres.png
+│   ├── task1-2-manual-backend.png
+│   ├── task1-3-manual-frontend.png
+│   ├── task2-1-docker-compose-build.png
+│   ├── task2-2-docker-compose-up.png
+│   ├── task2-3-docker-ps-healthy.png
+│   ├── task3-1-test-health-endpoint.png
+│   ├── task3-2-test-api-crud.png
+│   ├── task3-3-web-browser.png
+│   ├── task4-1-troubleshoot-db-crash.png
+│   ├── task4-2-troubleshoot-logs-investigation.png
+│   └── task4-3-troubleshoot-fix-and-verify.png
+└── README.md
 ```
 
 ---
 
-## Task 1: Running the Application Manually
+## Part 1: Running the Application Manually
 
-Before authoring container definitions, each tier was tested and verified independently on the host environment to validate network bindings and environment variable configurations.
+Prior to writing multi-container orchestrations, each component was verified independently in an isolated manual run.
 
 ### 1.1 Running PostgreSQL Manually
-PostgreSQL was launched in standalone mode, and connection validity was verified using `psql` to check database creation and run test queries.
+A dedicated persistent volume was created, and PostgreSQL was initialized with credentials and the startup SQL script:
 
 ```bash
-docker run -d --name test-postgres \
-  -e POSTGRES_DB=devops_project_db \
-  -e POSTGRES_USER=shubh_user \
-  -e POSTGRES_PASSWORD=shubh_secure_password_2026 \
+docker volume create manual_postgres_data
+docker run -d --name manual-postgres \
+  -e POSTGRES_DB=devopsdb \
+  -e POSTGRES_USER=shubh_admin \
+  -e POSTGRES_PASSWORD=shubhsecurepass123 \
+  -v manual_postgres_data:/var/lib/postgresql/data \
   -p 5432:5432 postgres:15-alpine
 
-docker exec -it test-postgres psql -U shubh_user -d devops_project_db -c "\conninfo"
+docker exec -it manual-postgres pg_isready -U shubh_admin -d devopsdb
+docker exec -i manual-postgres psql -U shubh_admin -d devopsdb < application/database/init.sql
 ```
 
-```
-You are connected to database "devops_project_db" as user "shubh_user" via socket in "/var/run/postgresql" at port "5432".
-```
-
-![Manual PostgreSQL Execution](images/01-manual-postgres.png)
-
----
+![Manual PostgreSQL Execution](images/task1-1-manual-postgres.png)
 
 ### 1.2 Running Backend Manually
-With PostgreSQL running on `localhost:5432`, the backend application dependencies were installed via `npm install` and started with database connection parameters passed via environment variables.
+With PostgreSQL running on `localhost:5432`, dependencies were installed and the Node.js process was launched with connection variables:
 
 ```bash
-cd app/backend/
-npm install
-export DB_HOST=localhost DB_PORT=5432 DB_USER=shubh_user DB_PASSWORD=shubh_secure_password_2026 DB_NAME=devops_project_db
-node server.js
+cd application/backend && npm install
+export DB_HOST=localhost DB_PORT=5432 DB_NAME=devopsdb DB_USER=shubh_admin DB_PASSWORD=shubhsecurepass123 PORT=5000
+node server.js &
+curl -s http://localhost:5000/health | jq .
 ```
 
-```
-[Session 21 Backend] API listening on port 5000
-[Student Info] Shubh Shukla (24bcs10093)
-[Database] Connected successfully to PostgreSQL on localhost:5432
-```
-
-Testing health endpoint:
-```bash
-curl -s http://localhost:5000/health
-```
-
-```json
-{
-  "status": "UP",
-  "service": "DevOps 3-Tier Backend API",
-  "database": "CONNECTED",
-  "db_info": {
-    "current_time": "2026-10-07T21:40:02.124Z",
-    "db_name": "devops_project_db"
-  },
-  "hostname": "devops-workstation",
-  "uptime": 14,
-  "student": {
-    "name": "Shubh Shukla",
-    "enrollment_no": "24bcs10093"
-  },
-  "timestamp": "2026-10-07T21:40:16.125Z"
-}
-```
-
-![Manual Backend Execution](images/02-manual-backend.png)
-
----
+![Manual Backend Execution](images/task1-2-manual-backend.png)
 
 ### 1.3 Running Frontend Manually
-The static frontend dashboard was tested on port 3000 using a lightweight HTTP server, confirming asset delivery and HTML parsing:
+The frontend container was built and executed, mapping host port `8080` to container port `80`:
 
 ```bash
-cd ../frontend/
-python -m http.server 3000
-curl -I http://localhost:3000
+cd application/frontend
+docker build -t s21-frontend-manual:v1 .
+docker run -d --name manual-frontend -p 8080:80 s21-frontend-manual:v1
+curl -I http://localhost:8080
 ```
 
-```
-HTTP/1.0 200 OK
-Server: SimpleHTTP/0.6 Python/3.14.0
-Content-type: text/html
-Content-Length: 4210
-```
-
-![Manual Frontend Execution](images/03-manual-frontend.png)
+![Manual Frontend Execution](images/task1-3-manual-frontend.png)
 
 ---
 
-## Task 2: Containerization with Dockerfiles
+## Part 2: Containerization & Docker Compose
 
-To containerize the frontend and backend tiers according to container security best practices, custom Dockerfiles were constructed.
-
-### Backend Dockerfile (`app/backend/Dockerfile`)
-The backend image uses `node:18-alpine` for minimum surface area, installs only production dependencies, and executes as the unprivileged `node` user:
+### 2.1 Multi-Stage Dockerfile for Backend
+The backend utilizes an optimized multi-stage build to separate build tools and prune devDependencies, yielding a minimal Alpine runtime image:
 
 ```dockerfile
-FROM node:18-alpine
-
+# Stage 1: Build & Dependencies
+FROM node:18-alpine AS builder
 WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
 
-COPY package.json ./
-RUN npm install --production
-
-COPY server.js ./
-
-EXPOSE 5000
-
+# Stage 2: Production Runtime
+FROM node:18-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=builder /app/node_modules ./node_modules
+COPY . .
 USER node
-
+EXPOSE 5000
 CMD ["node", "server.js"]
 ```
 
-### Frontend Dockerfile (`app/frontend/Dockerfile`)
-The frontend image uses `nginx:alpine` to serve optimized static HTML/CSS/JS assets and configure an internal reverse proxy to forward `/api/` and `/health` requests directly to the backend container:
-
-```dockerfile
-FROM nginx:alpine
-
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY index.html /usr/share/nginx/html/index.html
-COPY style.css /usr/share/nginx/html/style.css
-COPY app.js /usr/share/nginx/html/app.js
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
-```
-
-![Frontend & Backend Dockerfiles](images/04-dockerfiles.png)
-
----
-
-## Task 3: Multi-Container Orchestration (`docker-compose.yml`)
-
-The multi-container architecture is declared declaratively in `app/docker-compose.yml`:
-- **Service Dependency & Healthchecks:** The backend depends on `postgres` with `condition: service_healthy` to eliminate startup race conditions.
-- **Network Isolation:** All containers communicate over an isolated bridge network (`devops-network`) using Docker internal DNS.
-- **Data Persistence:** The PostgreSQL data directory `/var/lib/postgresql/data` is mounted to named volume `postgres_data`.
+### 2.2 Docker Compose Configuration (`docker-compose.yml`)
+The orchestration configuration guarantees zero-downtime boots using **healthchecks** and container dependencies:
 
 ```yaml
 version: '3.8'
 
 services:
-  postgres:
+  database:
     image: postgres:15-alpine
-    container_name: devops-postgres
+    container_name: s21-postgres-db
     restart: always
     environment:
-      POSTGRES_DB: devops_project_db
-      POSTGRES_USER: shubh_user
-      POSTGRES_PASSWORD: shubh_secure_password_2026
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: devopsdb
+      POSTGRES_USER: shubh_admin
+      POSTGRES_PASSWORD: shubhsecurepass123
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./application/database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
-      - devops-network
+      - devops-backend-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U shubh_user -d devops_project_db"]
+      test: ["CMD-SHELL", "pg_isready -U shubh_admin -d devopsdb"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   backend:
     build:
-      context: ./backend
+      context: ./application/backend
       dockerfile: Dockerfile
-    container_name: devops-backend
+    container_name: s21-backend-api
     restart: always
     environment:
       PORT: 5000
-      DB_HOST: postgres
+      DB_HOST: database
       DB_PORT: 5432
-      DB_USER: shubh_user
-      DB_PASSWORD: shubh_secure_password_2026
-      DB_NAME: devops_project_db
-      STUDENT_NAME: "Shubh Shukla"
-      STUDENT_ID: "24bcs10093"
+      DB_NAME: devopsdb
+      DB_USER: shubh_admin
+      DB_PASSWORD: shubhsecurepass123
     ports:
       - "5000:5000"
     depends_on:
-      postgres:
+      database:
         condition: service_healthy
     networks:
-      - devops-network
+      - devops-backend-net
+      - devops-frontend-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:5000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   frontend:
     build:
-      context: ./frontend
+      context: ./application/frontend
       dockerfile: Dockerfile
-    container_name: devops-frontend
+    container_name: s21-frontend-web
     restart: always
     ports:
-      - "3000:80"
+      - "8080:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
-      - devops-network
+      - devops-frontend-net
 
 networks:
-  devops-network:
+  devops-backend-net:
+    driver: bridge
+  devops-frontend-net:
     driver: bridge
 
 volumes:
@@ -251,167 +242,100 @@ volumes:
     driver: local
 ```
 
----
-
-## Task 4: Running the Multi-Container Stack
-
-The stack was built and started in detached mode using `docker compose up -d --build`:
+### 2.3 Build & Launch Commands
 
 ```bash
+# Build images cleanly
+docker compose build --no-cache
+```
+
+![Docker Compose Build](images/task2-1-docker-compose-build.png)
+
+```bash
+# Start all containers in detached mode
 docker compose up -d --build
 ```
 
-```
-[+] Building 4.8s (16/16) FINISHED
- => [backend] naming to docker.io/library/devops-backend:latest
- => [frontend] naming to docker.io/library/devops-frontend:latest
-[+] Running 4/4
- ✔ Network devops-network         Created                                            0.1s
- ✔ Volume "postgres_data"         Created                                            0.0s
- ✔ Container devops-postgres       Healthy                                            6.2s
- ✔ Container devops-backend        Started                                            1.1s
- ✔ Container devops-frontend       Started                                            0.9s
-```
+![Docker Compose Up](images/task2-2-docker-compose-up.png)
 
-![docker compose up -d --build](images/05-docker-compose-build-up.png)
-
-### Verifying Running Containers (`docker compose ps`)
+### 2.4 Verifying Container Health
+Checking container runtime status confirms that all services are in healthy state:
 
 ```bash
 docker compose ps
+docker inspect --format='{{.State.Health.Status}}' s21-backend-api s21-postgres-db
 ```
 
-```
-NAME                IMAGE                  COMMAND                  SERVICE             CREATED             STATUS                    PORTS
-devops-backend      devops-backend:latest  "docker-entrypoint.s…"   backend             12 seconds ago      Up 11 seconds             0.0.0.0:5000->5000/tcp
-devops-frontend     devops-frontend:latest "/docker-entrypoint.…"   frontend            12 seconds ago      Up 11 seconds             0.0.0.0:3000->80/tcp
-devops-postgres     postgres:15-alpine     "docker-entrypoint.s…"   postgres            18 seconds ago      Up 17 seconds (healthy)   0.0.0.0:5432->5432/tcp
-```
-
-![docker compose ps](images/06-docker-compose-ps.png)
+![Docker Compose PS Healthy](images/task2-3-docker-ps-healthy.png)
 
 ---
 
-## Task 5: Testing Backend REST APIs
+## Part 3: Application & Backend API Verification
 
-Both HTTP status codes and JSON response payloads were verified using `curl`:
+### 3.1 Health & Metadata Endpoints
+Testing the API root and health endpoints confirms live connectivity to PostgreSQL:
 
-### 5.1 Health Check API (`GET /health`)
 ```bash
-curl -i http://localhost:5000/health
+curl -s http://localhost:5000/health | jq .
+curl -s http://localhost:5000/ | jq .
 ```
 
-```http
-HTTP/1.1 200 OK
-Content-Type: application/json; charset=utf-8
+![API Health Verification](images/task3-1-test-health-endpoint.png)
 
-{
-  "status": "UP",
-  "service": "DevOps 3-Tier Backend API",
-  "database": "CONNECTED",
-  "db_info": {
-    "current_time": "2026-10-07T21:46:12.441Z",
-    "db_name": "devops_project_db"
-  },
-  "hostname": "8f312cb67a12",
-  "uptime": 45,
-  "student": {
-    "name": "Shubh Shukla",
-    "enrollment_no": "24bcs10093"
-  },
-  "timestamp": "2026-10-07T21:46:12.442Z"
-}
-```
+### 3.2 CRUD Operations & Data Persistence
+Testing the `/api/tasks` REST endpoints verifies reading database records and inserting new records into PostgreSQL:
 
-### 5.2 Retrieve Tasks (`GET /api/tasks`)
-Verifying database records seeded by `init.sql`:
 ```bash
-curl -s http://localhost:5000/api/tasks
+# Fetch initial tasks
+curl -s http://localhost:5000/api/tasks | jq .
+
+# Create new milestone task
+curl -s -X POST http://localhost:5000/api/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Automated Security Scan Gate","status":"completed"}' | jq .
 ```
 
-### 5.3 Add New Task (`POST /api/tasks`)
-Inserting a new task dynamically:
-```bash
-curl -i -X POST http://localhost:5000/api/tasks \
-    -H "Content-Type: application/json" \
-    -d '{"title":"Container Healthcheck Gates","status":"In Progress"}'
-```
+![API CRUD Operations](images/task3-2-test-api-crud.png)
 
-```http
-HTTP/1.1 201 Created
-Content-Type: application/json; charset=utf-8
+### 3.3 Web Browser Portal Verification
+Accessing `http://localhost:8080` in the browser renders the responsive dashboard displaying real-time task items fetched dynamically from the database via the Nginx reverse proxy:
 
-{
-  "success": true,
-  "data": {
-    "id": 5,
-    "title": "Container Healthcheck Gates",
-    "status": "In Progress",
-    "author": "Shubh Shukla (24bcs10093)"
-  }
-}
-```
-
-![Backend REST API Testing](images/07-test-backend-apis.png)
+![Web Browser Verification](images/task3-3-web-browser.png)
 
 ---
 
-## Task 6: Testing the Application in Browser
+## Part 4: Deliberate Troubleshooting Challenges
 
-The complete integrated stack was loaded in the web browser at `http://localhost:3000`. The frontend communicates with the backend through the Nginx reverse proxy, querying PostgreSQL and displaying real-time tier health and tasks.
+As required by the final DevOps assignment specification, multiple real-world failure scenarios were deliberately introduced, diagnosed, and resolved.
 
-![Live 3-Tier Web Application](images/08-browser-frontend-app.png)
+### Challenge 1: Cold-Boot Database Race Condition
+- **Symptom:** When running `docker compose up`, the backend crashed with exit code 1 (`Error: connect ECONNREFUSED`).
+- **Investigation:** Inspecting logs with `docker compose logs backend` revealed that Node.js tried connecting to PostgreSQL while PostgreSQL was still initializing its data directory.
 
----
+![Troubleshooting Cold Boot Crash](images/task4-1-troubleshoot-db-crash.png)
 
-## Task 7: Troubleshooting Multi-Container Systems
+- **Root Cause:** Standard `depends_on: [database]` only checks if the container is created, NOT whether PostgreSQL is ready to accept queries.
+- **Resolution:** Implemented an active `healthcheck` on the database service (`pg_isready -U shubh_admin -d devopsdb`) and set `depends_on.database.condition: service_healthy` in `docker-compose.yml`.
 
-During multi-container development and deployment, three critical operational challenges were investigated and resolved:
+### Challenge 2: Host Port Conflict on 8080
+- **Symptom:** Running `docker compose up -d frontend` failed with `Bind for 0.0.0.0:8080 failed: port is already allocated`.
+- **Investigation:** Used `netstat -ano | grep 8080` to identify PID 9144, followed by `tasklist /FI "PID eq 9144"`.
 
-### Issue 1: Race Condition on Container Startup (Database not yet ready)
-- **Problem:** When `docker compose up` starts containers simultaneously, the backend attempts to establish a connection pool immediately. If PostgreSQL is still initializing its cluster or replaying write-ahead logs, the backend crashes with `ECONNREFUSED`.
-- **Root Cause:** Standard `depends_on: [postgres]` only waits for container creation, not database readiness.
-- **Solution:** Configured a native PostgreSQL healthcheck in `docker-compose.yml`:
-  ```yaml
-  healthcheck:
-    test: ["CMD-SHELL", "pg_isready -U shubh_user -d devops_project_db"]
-    interval: 5s
-    timeout: 5s
-    retries: 5
-  ```
-  And configured the backend dependency:
-  ```yaml
-  depends_on:
-    postgres:
-      condition: service_healthy
-  ```
+![Troubleshooting Port Conflict](images/task4-2-troubleshoot-logs-investigation.png)
 
-### Issue 2: Cross-Container Networking & DNS Resolution
-- **Problem:** Attempting to connect the backend to `localhost:5432` inside a container fails because `localhost` refers to the container's private network namespace.
-- **Solution:** Utilized Docker's embedded DNS server (`127.0.0.11`). Within `devops-network`, containers discover each other using service names (`postgres` and `backend`).
+- **Root Cause:** The earlier manual test container (`manual-frontend`) was still running and bound to port 8080.
+- **Resolution:** Executed `docker rm -f manual-frontend`, freed up socket 8080, and restarted the stack.
 
-### Issue 3: Persistent Data Verification Across Lifecycle Events
-- **Problem:** Destroying containers with `docker compose down` must not discard relational records.
-- **Validation:** Executed `docker compose down` followed by `docker compose up -d`, and verified that all 5 tasks remained intact in the PostgreSQL data volume (`postgres_data`).
+### Verification of Fixes
+Relaunching `docker compose up -d` now brings up the entire three-tier stack cleanly, synchronously, and with zero startup race conditions:
 
-![Docker Logs and Persistence Troubleshooting](images/09-troubleshooting-db-healthcheck.png)
+![Troubleshooting Fix & Verification](images/task4-3-troubleshoot-fix-and-verify.png)
 
 ---
 
-## Deliverables Summary
+## Key Learnings & DevOps Takeaways
 
-| Deliverable | Location | Status |
-|---|---|---|
-| Frontend Source Code & Dockerfile | `app/frontend/` | Complete |
-| Backend Source Code & Dockerfile | `app/backend/` | Complete |
-| Database Schema & Seed Data | `app/database/init.sql` | Complete |
-| Docker Compose Configuration | `app/docker-compose.yml` | Complete |
-| Manual Run Screenshots | `images/01-manual-postgres.png`, `02-manual-backend.png`, `03-manual-frontend.png` | Verified |
-| Docker Build & PS Screenshots | `images/05-docker-compose-build-up.png`, `06-docker-compose-ps.png` | Verified |
-| API Testing Screenshot | `images/07-test-backend-apis.png` | Verified |
-| Browser Interface Screenshot | `images/08-browser-frontend-app.png` | Verified |
-| Troubleshooting & Logs Evidence | `images/09-troubleshooting-db-healthcheck.png` | Verified |
-
----
-
-*Submitted by **Shubh Shukla** (`24bcs10093`) for DevOps Session 21 Final Project.*
+1. **Docker Compose Healthchecks:** Never rely on simple container existence checks for database-dependent applications; always declare custom health checks with `condition: service_healthy`.
+2. **Multi-Stage Builds:** Splitting development build tools from the final runtime image drastically minimizes image size and removes CVE attack vectors from production.
+3. **Network Isolation:** Tiered networks (frontend bridge vs backend bridge) enforce least-privilege security where databases never directly face the host network.
+4. **Volume Persistence:** Proper mapping to named volumes ensures zero data loss across container teardowns (`docker compose down`) and updates.
